@@ -4,7 +4,7 @@ import java.net.InetSocketAddress
 import java.time.LocalDate
 
 import com.datastax.oss.driver.api.core.CqlSession
-import com.datastax.oss.driver.api.core.cql.{BoundStatement, Row}
+import com.datastax.oss.driver.api.core.cql.{BatchStatement, BoundStatement, DefaultBatchType, Row}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.slf4j.LoggerFactory
 
@@ -120,6 +120,7 @@ object CassSessionInstance extends CassSession{
     }
   }
 
+  /* save one by one row.
   def saveBarsFutAnal(seqFA: Seq[barsResToSaveDB]): Unit = {
     for (t <- seqFA) {
       sess.execute(prepSaveFa
@@ -136,7 +137,37 @@ object CassSessionInstance extends CassSession{
         .setString("p_res_type", t.res_type)
       )
     }
-
+  }
+  */
+  def saveBarsFutAnal(seqFA: Seq[barsResToSaveDB]): Unit = {
+    val seqBarsParts = seqFA.grouped(500)
+    for (thisPartOfSeq <- seqBarsParts) {
+      val builder = BatchStatement.builder(DefaultBatchType.UNLOGGED)
+      thisPartOfSeq.foreach {
+        t =>
+          builder.addStatement(prepSaveFa
+            .setInt("p_ticker_id", t.tickerId)
+            .setLocalDate("p_ddate", t.dDate)
+            .setInt("p_bar_width_sec", t.barWidthSec)
+            .setLong("p_ts_end", t.ts_end)
+            .setDouble("p_c", t.c)
+            .setDouble("p_log_oe", t.log_oe)
+            .setLong("p_ts_end_res", t.ts_end_res)
+            .setInt("p_dursec_res", t.dursec_res)
+            .setLocalDate("p_ddate_res", t.ddate_res)
+            .setDouble("p_c_res", t.c_res)
+            .setString("p_res_type", t.res_type))
+      }
+      try {
+        val batch = builder.build()
+        log.trace("saveBarsFutAnal  before execute batch.size()=" + batch.size())
+        sess.execute(batch)
+        batch.clear()
+      } catch {
+        case e: com.datastax.oss.driver.api.core.DriverException => log.error(s"DriverException when save bars ${e.getMessage} ${e.getCause}")
+          throw e
+      }
+    }
   }
 
   def getAllBarsProperties : Seq[BarProperty] =

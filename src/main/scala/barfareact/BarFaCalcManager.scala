@@ -1,9 +1,18 @@
 package barfareact
 
 import java.time.LocalDate
-
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
 import com.typesafe.config.Config
 import org.slf4j.{Logger, LoggerFactory}
+
+/*
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
+
+*/
 
 class BarFaCalcManager(config :Config, sess :CassSessionInstance.type) {
   val log: Logger = LoggerFactory.getLogger(getClass.getName)
@@ -22,7 +31,6 @@ class BarFaCalcManager(config :Config, sess :CassSessionInstance.type) {
     log.info(s"startReadFrom = $startReadFrom  ")
 
 
-    /*
     val seqBars: Seq[barsForFutAnalyze] = sess.readBars (
       tickerID,
       barWidthSec,
@@ -48,7 +56,7 @@ class BarFaCalcManager(config :Config, sess :CassSessionInstance.type) {
     sess.saveBarsFutAnal(resFSave)
     val t2Save = System.currentTimeMillis
     log.info("Duration of saving into mts_bars.bars_fa - " + (t2Save - t1Save) + " msecs.")
-  */
+
   }
 
 }
