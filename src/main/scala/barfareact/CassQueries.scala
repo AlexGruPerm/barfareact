@@ -4,6 +4,12 @@ trait CassQueries {
 
   val sqlBCalcProps = " select * from mts_meta.bars_property "
 
+  val sqlAllDatesByTickBws = """ select distinct ticker_id,bar_width_sec,ddate
+                               |   from mts_bars.bars
+                               |  where ticker_id     = :pTickerId and
+                               |        bar_width_sec = :pBarWidthSec
+                               |        allow filtering """.stripMargin
+
   val queryMaxDateFa = """ select max(ddate) as faLastDate
                          |   from mts_bars.bars_fa
                          |  where ticker_id     = :pTickerId and

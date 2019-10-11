@@ -44,6 +44,7 @@ object CassSessionInstance extends CassSession{
   log.info("CassSessionInstance session is connected = " + !sess.isClosed)
 
   private val prepBCalcProps :BoundStatement = prepareSql(sess,sqlBCalcProps)
+  private val prepAllDatesByTickBws :BoundStatement = prepareSql(sess,sqlAllDatesByTickBws)
   private val prepMaxDateFa: BoundStatement = prepareSql(sess, queryMaxDateFa)
   private val prepMinDateBar: BoundStatement = prepareSql(sess, queryMinDateBar)
   private val prepReadBarsAll: BoundStatement = prepareSql(sess, queryReadBarsAll)
@@ -51,6 +52,21 @@ object CassSessionInstance extends CassSession{
   private val prepSaveFa: BoundStatement = prepareSql(sess, querySaveFa)
 
   implicit def LocalDateToOpt(v :LocalDate) :Option[LocalDate] = Option(v)
+
+  lazy val getAllBarsProperties : () => Seq[BarProperty] = () =>
+    sess.execute(prepBCalcProps).all().iterator.asScala.map(
+      row => BarProperty(
+        row.getInt("ticker_id"),
+        row.getInt("bar_width_sec"),
+        row.getInt("is_enabled")
+      )).toList.filter(bp => bp.isEnabled==1)
+
+  lazy val getAllDates : (Int,Int) => Seq[LocalDate] = (tickerID, barWidthSec) =>
+    sess.execute(prepAllDatesByTickBws
+      .setInt("pTickerId", tickerID)
+      .setInt("pBarWidthSec", barWidthSec))
+      .all().iterator.asScala.map(row => row.getLocalDate("ddate")
+    ).toList.distinct.sortBy(ld => ld)
 
   lazy val getFaLastDate :(Int, Int) => Option[LocalDate] = (tickerID, barWidthSec) =>
     sess.execute(prepMaxDateFa
@@ -101,24 +117,26 @@ object CassSessionInstance extends CassSession{
     *
     *
     */
-  def readBars(tickerID: Int, barWidthSec: Int, startReadDate: Option[LocalDate], cntDays: Integer = 0): Seq[barsForFutAnalyze] =
+  def readBars(tickerID: Int, barWidthSec: Int, startReadDate: Option[LocalDate], distDates :Seq[LocalDate]): Seq[barsForFutAnalyze] =
     startReadDate match {
-      case Some(startDate) if cntDays != 0 =>
-        //todo: выходные ломают, это логику, нужно вначале вычитывать уникальные даты и потом take N записей из них.
-        (0 until cntDays).flatMap {
-          addDays =>
-            sess.execute(prepReadBarsOneDate
-              .setInt("pTickerId", tickerID)
-              .setInt("pBarWidthSec", barWidthSec)
-              .setLocalDate("pDate", startDate.plusDays(addDays))).all()
-              .iterator.asScala.toSeq.map(r => rowToBarData(r, tickerID, barWidthSec, startDate.plusDays(addDays)))
-              .sortBy(sr => (sr.dDate, sr.ts_end))
+      //read all bars from startDate to the last date.
+      case Some(startDate)  =>
+        distDates
+          .filter(dat => dat == startDate || dat.isAfter(startDate))
+          .flatMap {
+            thisDate =>
+              sess.execute(prepReadBarsOneDate
+                .setInt("pTickerId", tickerID)
+                .setInt("pBarWidthSec", barWidthSec)
+                .setLocalDate("pDate", thisDate)).all
+                .iterator.asScala.toSeq.map(r => rowToBarData(r, tickerID, barWidthSec, thisDate))
+                .sortBy(sr => (sr.dDate, sr.ts_end))
         }
-      //read all bars, bcs. cntDays not specified
-      case Some(_) if cntDays == 0 =>
+      //read all bars from first date to last date.
+      case Some(_)  =>
         sess.execute(prepReadBarsAll
           .setInt("pTickerId", tickerID)
-          .setInt("pBarWidthSec", barWidthSec)).all()
+          .setInt("pBarWidthSec", barWidthSec)).all
           .iterator.asScala.toSeq.map(r => rowToBarDataWthoDate(r, tickerID, barWidthSec))
           .sortBy(sr => (sr.dDate, sr.ts_end))
       case None => {
@@ -150,8 +168,26 @@ object CassSessionInstance extends CassSession{
     }
   }
 
+  /**
+    * For optimal uasge of batch unlogged pwrites.
+    * we need divide data into partitions blocks before inserts.
+    * OR:
+    * Unlogged batch covering XX partitions detected against table [mts_bars.bars_fa].
+    * You should use a logged batch for atomicity, or asynchronous writes for performance.
+    *
+    *  mts_bars.bars_fa  PRIMARY KEY (( ticker_id, ddate, bar_width_sec ), ...
+    *
+  */
   def saveBarsFutAnal(seqFA: Seq[barsResToSaveDB]): Unit = {
-    val seqBarsParts = seqFA.grouped(500)
+    //Count of seconds in day divide on bws (Bar width in seconds)
+    val batchSizeAsFuncFromBws :Int =
+      seqFA.headOption match {
+        case Some(bar) => 86400/bar.barWidthSec
+        case None => 0
+      }
+
+    val seqBarsParts = seqFA.grouped(batchSizeAsFuncFromBws)
+
     for (thisPartOfSeq <- seqBarsParts) {
       val builder = BatchStatement.builder(DefaultBatchType.UNLOGGED)
       thisPartOfSeq.foreach {
@@ -181,23 +217,9 @@ object CassSessionInstance extends CassSession{
     }
   }
 
-  lazy val getAllBarsProperties : () => Seq[BarProperty] = () =>
-    sess.execute(prepBCalcProps).all().iterator.asScala.map(
-    row => BarProperty(
-      row.getInt("ticker_id"),
-      row.getInt("bar_width_sec"),
-      row.getInt("is_enabled")
-    )).toList.filter(bp => bp.isEnabled==1)
 
-  /*
-  def getAllBarsProperties : Seq[BarProperty] =
-    sess.execute(prepBCalcProps).all().iterator.asScala.map(
-      row => BarProperty(
-        row.getInt("ticker_id"),
-        row.getInt("bar_width_sec"),
-        row.getInt("is_enabled")
-      )).toList.filter(bp => bp.isEnabled==1)
-*/
+
+
 
   def convertFaDataToSaveData(futAnalRes: Seq[barsFutAnalyzeRes]) : Seq[barsResToSaveDB] =
     futAnalRes
