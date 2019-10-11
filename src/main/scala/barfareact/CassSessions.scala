@@ -46,6 +46,7 @@ object CassSessionInstance extends CassSession{
   private val prepBCalcProps :BoundStatement = prepareSql(sess,sqlBCalcProps)
   private val prepMaxDateFa: BoundStatement = prepareSql(sess, queryMaxDateFa)
   private val prepMinDateBar: BoundStatement = prepareSql(sess, queryMinDateBar)
+  private val prepReadBarsAll: BoundStatement = prepareSql(sess, queryReadBarsAll)
   private val prepReadBarsOneDate: BoundStatement = prepareSql(sess, queryReadBarsOneDate)
   private val prepSaveFa: BoundStatement = prepareSql(sess, querySaveFa)
 
@@ -77,23 +78,49 @@ object CassSessionInstance extends CassSession{
       row.getDouble("c")
     )
 
+  val rowToBarDataWthoDate : (Row, Int, Int) => barsForFutAnalyze =
+    (row: Row, tickerID: Int, barWidthSec: Int) =>
+      barsForFutAnalyze(
+        tickerID,
+        barWidthSec,
+        row.getLocalDate("ddate"),
+        row.getLong("ts_begin"),
+        row.getLong("ts_end"),
+        row.getDouble("o"),
+        row.getDouble("h"),
+        row.getDouble("l"),
+        row.getDouble("c")
+      )
 
   /** Read bars from DB beginning from startReadDate if Some,
     * otherwise return empty Seq.
+    * We need compare performance
+    * 1) read date by date all bars (175 ddate for 11.10.2019)
+    * 2) read all bars in one query
+    * Tests:
+    *
+    *
     */
-  def readBars(tickerID: Int, barWidthSec: Int, startReadDate: Option[LocalDate], cntDays: Integer = 1): Seq[barsForFutAnalyze] =
+  def readBars(tickerID: Int, barWidthSec: Int, startReadDate: Option[LocalDate], cntDays: Integer = 0): Seq[barsForFutAnalyze] =
     startReadDate match {
-      case Some(startDate) =>
+      case Some(startDate) if cntDays != 0 =>
+        //todo: выходные ломают, это логику, нужно вначале вычитывать уникальные даты и потом take N записей из них.
         (0 until cntDays).flatMap {
           addDays =>
             sess.execute(prepReadBarsOneDate
               .setInt("pTickerId", tickerID)
               .setInt("pBarWidthSec", barWidthSec)
-              .setLocalDate("pDate", startDate.plusDays(addDays)))
-              .all()
+              .setLocalDate("pDate", startDate.plusDays(addDays))).all()
               .iterator.asScala.toSeq.map(r => rowToBarData(r, tickerID, barWidthSec, startDate.plusDays(addDays)))
               .sortBy(sr => (sr.dDate, sr.ts_end))
         }
+      //read all bars, bcs. cntDays not specified
+      case Some(_) if cntDays == 0 =>
+        sess.execute(prepReadBarsAll
+          .setInt("pTickerId", tickerID)
+          .setInt("pBarWidthSec", barWidthSec)).all()
+          .iterator.asScala.toSeq.map(r => rowToBarDataWthoDate(r, tickerID, barWidthSec))
+          .sortBy(sr => (sr.dDate, sr.ts_end))
       case None => {
         log.info("There is no start point to read bars. startReadDate = None")
         Nil}

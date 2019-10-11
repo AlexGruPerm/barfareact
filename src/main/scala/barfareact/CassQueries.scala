@@ -15,7 +15,13 @@ trait CassQueries {
                           |  where ticker_id     = :pTickerId and
                           |        bar_width_sec = :pBarWidthSec """.stripMargin
 
-  val queryReadBarsOneDate = """ select ts_begin,ts_end,o,h,l,c
+  val queryReadBarsAll = """ select ddate,ts_begin,ts_end,o,h,l,c
+                           |   from mts_bars.bars
+                           |  where ticker_id     = :pTickerId and
+                           |        bar_width_sec = :pBarWidthSec
+                           |  allow filtering """.stripMargin
+
+  val queryReadBarsOneDate = """ select ddate,ts_begin,ts_end,o,h,l,c
                                |   from mts_bars.bars
                                |  where ticker_id     = :pTickerId and
                                |        bar_width_sec = :pBarWidthSec and
