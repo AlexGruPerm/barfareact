@@ -20,33 +20,29 @@ trait CassQueries {
                                |  where ticker_id     = :pTickerId and
                                |        bar_width_sec = :pBarWidthSec and
                                |        ddate         = :pDate
-                               |  order by ts_end; """.stripMargin
+                               |  order by ts_end """.stripMargin
 
-  val querySaveFa =
-    """ insert into mts_bars.bars_fa(
-                                      ticker_id,
-                                      ddate,
-                                      bar_width_sec,
-                                      ts_end,
-                                      c,
-                                      log_oe,
-                                      ts_end_res,
-                                      dursec_res,
-                                      ddate_res,
-                                      c_res,
-                                      res_type)
-                               values(
-                                       :p_ticker_id,
-                                       :p_ddate,
-                                       :p_bar_width_sec,
-                                       :p_ts_end,
-                                       :p_c,
-                                       :p_log_oe,
-                                       :p_ts_end_res,
-                                       :p_dursec_res,
-                                       :p_ddate_res,
-                                       :p_c_res,
-                                       :p_res_type
-                                      ) """
+  val querySaveFa =  """  insert into mts_bars.bars_fa(ticker_id,
+                        |                              ddate,
+                        |                              bar_width_sec,
+                        |                              ts_end,
+                        |                              c,
+                        |                              log_oe,
+                        |                              ts_end_res,
+                        |                              dursec_res,
+                        |                              ddate_res,
+                        |                              c_res,
+                        |                              res_type)
+                        |                       values(:p_ticker_id,
+                        |                              :p_ddate,
+                        |                              :p_bar_width_sec,
+                        |                              :p_ts_end,
+                        |                              :p_c,
+                        |                              :p_log_oe,
+                        |                              :p_ts_end_res,
+                        |                              :p_dursec_res,
+                        |                              :p_ddate_res,
+                        |                              :p_c_res,
+                        |                              :p_res_type) """.stripMargin
 
 }

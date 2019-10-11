@@ -94,8 +94,11 @@ object CassSessionInstance extends CassSession{
               .iterator.asScala.toSeq.map(r => rowToBarData(r, tickerID, barWidthSec, startDate.plusDays(addDays)))
               .sortBy(sr => (sr.dDate, sr.ts_end))
         }
-      case None => Nil
+      case None => {
+        log.info("There is no start point to read bars. startReadDate = None")
+        Nil}
     }
+
 
   def makeAnalyze(seqB: Seq[barsForFutAnalyze], p: Double): Seq[barsFutAnalyzeRes] = {
     for (
@@ -120,25 +123,6 @@ object CassSessionInstance extends CassSession{
     }
   }
 
-  /* save one by one row.
-  def saveBarsFutAnal(seqFA: Seq[barsResToSaveDB]): Unit = {
-    for (t <- seqFA) {
-      sess.execute(prepSaveFa
-        .setInt("p_ticker_id", t.tickerId)
-        .setLocalDate("p_ddate", t.dDate)
-        .setInt("p_bar_width_sec", t.barWidthSec)
-        .setLong("p_ts_end", t.ts_end)
-        .setDouble("p_c", t.c)
-        .setDouble("p_log_oe", t.log_oe)
-        .setLong("p_ts_end_res", t.ts_end_res)
-        .setInt("p_dursec_res", t.dursec_res)
-        .setLocalDate("p_ddate_res", t.ddate_res)
-        .setDouble("p_c_res", t.c_res)
-        .setString("p_res_type", t.res_type)
-      )
-    }
-  }
-  */
   def saveBarsFutAnal(seqFA: Seq[barsResToSaveDB]): Unit = {
     val seqBarsParts = seqFA.grouped(500)
     for (thisPartOfSeq <- seqBarsParts) {
@@ -170,6 +154,15 @@ object CassSessionInstance extends CassSession{
     }
   }
 
+  lazy val getAllBarsProperties : () => Seq[BarProperty] = () =>
+    sess.execute(prepBCalcProps).all().iterator.asScala.map(
+    row => BarProperty(
+      row.getInt("ticker_id"),
+      row.getInt("bar_width_sec"),
+      row.getInt("is_enabled")
+    )).toList.filter(bp => bp.isEnabled==1)
+
+  /*
   def getAllBarsProperties : Seq[BarProperty] =
     sess.execute(prepBCalcProps).all().iterator.asScala.map(
       row => BarProperty(
@@ -177,7 +170,7 @@ object CassSessionInstance extends CassSession{
         row.getInt("bar_width_sec"),
         row.getInt("is_enabled")
       )).toList.filter(bp => bp.isEnabled==1)
-
+*/
 
   def convertFaDataToSaveData(futAnalRes: Seq[barsFutAnalyzeRes]) : Seq[barsResToSaveDB] =
     futAnalRes

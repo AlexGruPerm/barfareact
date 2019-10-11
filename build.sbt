@@ -8,8 +8,8 @@ libraryDependencies += "com.datastax.oss" % "java-driver-core" % "4.0.1"
 libraryDependencies += "ch.qos.logback" % "logback-classic" % "1.2.3"
 libraryDependencies +="com.typesafe" % "config" % "1.3.4"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8" % "test"
-libraryDependencies +="org.scala-lang" % "scala-library" % "2.12.4"
-libraryDependencies +="com.typesafe" % "config" % "1.3.4"
+//libraryDependencies +="org.scala-lang" % "scala-library" % "2.12.4"
+libraryDependencies += "org.scala-lang" % "scala-library" % "2.13.0"
 
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
