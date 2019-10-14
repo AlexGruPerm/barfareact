@@ -180,43 +180,47 @@ object CassSessionInstance extends CassSession{
   */
   def saveBarsFutAnal(seqFA: Seq[barsResToSaveDB]): Unit = {
     //Count of seconds in day divide on bws (Bar width in seconds)
-    val batchSizeAsFuncFromBws :Int =
+    val batchSizeAsFuncFromBws: Int =
       seqFA.headOption match {
-        case Some(bar) => 86400/bar.barWidthSec
+        case Some(bar) => 86400 / bar.barWidthSec
         case None => 0
       }
+    /**
+      * Iterate by each distinct date.
+    */
+    seqFA.map(p => p.dDate).distinct.collect{
+      case thisDate =>
+      val seqBarsParts = seqFA.filter(b => b.dDate==thisDate).grouped(batchSizeAsFuncFromBws)
 
-    val seqBarsParts = seqFA.grouped(batchSizeAsFuncFromBws)
-
-    for (thisPartOfSeq <- seqBarsParts) {
-      val builder = BatchStatement.builder(DefaultBatchType.UNLOGGED)
-      thisPartOfSeq.foreach {
-        t =>
-          builder.addStatement(prepSaveFa
-            .setInt("p_ticker_id", t.tickerId)
-            .setLocalDate("p_ddate", t.dDate)
-            .setInt("p_bar_width_sec", t.barWidthSec)
-            .setLong("p_ts_end", t.ts_end)
-            .setDouble("p_c", t.c)
-            .setDouble("p_log_oe", t.log_oe)
-            .setLong("p_ts_end_res", t.ts_end_res)
-            .setInt("p_dursec_res", t.dursec_res)
-            .setLocalDate("p_ddate_res", t.ddate_res)
-            .setDouble("p_c_res", t.c_res)
-            .setString("p_res_type", t.res_type))
-      }
-      try {
-        val batch = builder.build()
-        log.trace("saveBarsFutAnal  before execute batch.size()=" + batch.size())
-        sess.execute(batch)
-        batch.clear()
-      } catch {
-        case e: com.datastax.oss.driver.api.core.DriverException => log.error(s"DriverException when save bars ${e.getMessage} ${e.getCause}")
-          throw e
+      for (thisPartOfSeq <- seqBarsParts) {
+        val builder = BatchStatement.builder(DefaultBatchType.UNLOGGED)
+        thisPartOfSeq.foreach {
+          t =>
+            builder.addStatement(prepSaveFa
+              .setInt("p_ticker_id", t.tickerId)
+              .setLocalDate("p_ddate", t.dDate)
+              .setInt("p_bar_width_sec", t.barWidthSec)
+              .setLong("p_ts_end", t.ts_end)
+              .setDouble("p_c", t.c)
+              .setDouble("p_log_oe", t.log_oe)
+              .setLong("p_ts_end_res", t.ts_end_res)
+              .setInt("p_dursec_res", t.dursec_res)
+              .setLocalDate("p_ddate_res", t.ddate_res)
+              .setDouble("p_c_res", t.c_res)
+              .setString("p_res_type", t.res_type))
+        }
+        try {
+          val batch = builder.build()
+          log.trace("saveBarsFutAnal  before execute batch.size()=" + batch.size())
+          sess.execute(batch)
+          batch.clear()
+        } catch {
+          case e: com.datastax.oss.driver.api.core.DriverException => log.error(s"DriverException when save bars ${e.getMessage} ${e.getCause}")
+            throw e
+        }
       }
     }
   }
-
 
 
 
