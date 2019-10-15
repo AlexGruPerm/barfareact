@@ -47,7 +47,9 @@ object MainBarFaCalc extends App {
     }
   require(!sessInstance.sess.isClosed, "Cassandra session must be opened.")
 
-  (new BarFaCalcManager(config,sessInstance)).run
+  val bcm :BarFaCalcManager = new BarFaCalcManager(config,sessInstance)
+  bcm.stat
+  //bcm.run
 
   log.info("========================================== END ============================================")
 }

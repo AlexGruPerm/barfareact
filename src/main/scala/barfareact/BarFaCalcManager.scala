@@ -17,8 +17,9 @@ import scala.concurrent.{Await, Future}
 */
 
 class BarFaCalcManager(config :Config, sess :CassSessionInstance.type) {
-  val log: Logger = LoggerFactory.getLogger(getClass.getName)
+  private val log: Logger = LoggerFactory.getLogger(getClass.getName)
   implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(4))
+  private val seqPercents: Seq[Double] = Seq(0.0012, 0.0025, 0.0050) //(15,30,60, basic points Fx.)
 
   private def calcFa(seqPercents: Seq[Double], seqBars: Seq[barsForFutAnalyze]): Seq[barsFutAnalyzeRes] = {
     val futuresFutAnalRes: Seq[Future[Seq[barsFutAnalyzeRes]]] = seqPercents
@@ -26,14 +27,11 @@ class BarFaCalcManager(config :Config, sess :CassSessionInstance.type) {
     Await.result(Future.sequence(futuresFutAnalRes), Duration.Inf).flatten
   }
 
+  def stat() :Unit = {
+
+  }
+
   def run() :Unit = {
-    val seqPercents: Seq[Double] = Seq(0.0012, 0.0025, 0.0050) //(15,30,60, basic points Fx.)
-    //val tickerDict :Seq[BarProperty] = sess.getAllBarsProperties()
-    /*
-    val (tickerID :Int, barWidthSec :Int) = sess
-      .getAllBarsProperties()
-      .find(p => p.tickerId==1 && p.bws==30).getOrElse(BarProperty(0,0,0)).unapply
-    */
     sess.getAllBarsProperties().collect {
       case thisTickerBarProp :BarProperty =>
         val (tickerID: Int, barWidthSec: Int) = thisTickerBarProp.unapply
