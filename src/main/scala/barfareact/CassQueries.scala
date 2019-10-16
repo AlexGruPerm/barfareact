@@ -57,4 +57,23 @@ trait CassQueries {
                         |                              :p_c_res,
                         |                              :p_res_type) """.stripMargin
 
+  val queryAllFaDateByTickerBws =
+                        """ select distinct ticker_id,ddate,bar_width_sec
+                          |   from mts_bars.bars_fa
+                          |  where ticker_id     = :pTickerId and
+                          |        bar_width_sec = :pBarWidthSec
+                          | allow filtering """.stripMargin
+
+  val queryFaCntPerPrimKey = """  select count(*) as cnt
+                               | from mts_bars.bars_fa
+                               | where ticker_id      = :pTickerId and
+                               |        bar_width_sec = :pBarWidthSec and
+                               |        ddate         = :ddate
+                               | allow filtering """.stripMargin
+
+  val queryBarCntPerPrimKey = """ select count(*) as cnt
+                              |   from mts_bars.bars
+                              |  where ticker_id     = :pTickerId and
+                              |        bar_width_sec = :pBarWidthSec and
+                              |        ddate         = :ddate """.stripMargin
 }

@@ -50,6 +50,9 @@ object CassSessionInstance extends CassSession{
   private val prepReadBarsAll: BoundStatement = prepareSql(sess, queryReadBarsAll)
   private val prepReadBarsOneDate: BoundStatement = prepareSql(sess, queryReadBarsOneDate)
   private val prepSaveFa: BoundStatement = prepareSql(sess, querySaveFa)
+  private val prepAllFaDateByTickerBws: BoundStatement = prepareSql(sess, queryAllFaDateByTickerBws)
+  private val prepFaCntPerPrimKey: BoundStatement = prepareSql(sess, queryFaCntPerPrimKey)
+  private val prepBarCntPerPrimKey: BoundStatement = prepareSql(sess, queryBarCntPerPrimKey)
 
   implicit def LocalDateToOpt(v :LocalDate) :Option[LocalDate] = Option(v)
 
@@ -79,6 +82,27 @@ object CassSessionInstance extends CassSession{
       .setInt("pTickerId", tickerID)
       .setInt("pBarWidthSec", barWidthSec))
       .one().getLocalDate("mindate")
+
+  lazy val getAllFaDates :(Int,Int) => Seq[LocalDate] = (tickerID, barWidthSec) =>
+    sess.execute(prepAllFaDateByTickerBws
+      .setInt("pTickerId", tickerID)
+      .setInt("pBarWidthSec", barWidthSec))
+      .all().iterator.asScala.map(row => row.getLocalDate("ddate")
+    ).toList.distinct.sortBy(ld => ld)
+
+  lazy val getFaCntPerPrimKey :(Int,Int,LocalDate) => Long = (tickerID, barWidthSec, thisDate) =>
+    Option(sess.execute(prepFaCntPerPrimKey
+      .setInt("pTickerId", tickerID)
+      .setInt("pBarWidthSec", barWidthSec)
+      .setLocalDate("ddate",thisDate))
+      .one().getLong("cnt")).getOrElse(0L)
+
+  lazy val getBarCntPerPrimKey :(Int,Int,LocalDate) => Long = (tickerID, barWidthSec, thisDate) =>
+    Option(sess.execute(prepBarCntPerPrimKey
+      .setInt("pTickerId", tickerID)
+      .setInt("pBarWidthSec", barWidthSec)
+      .setLocalDate("ddate",thisDate))
+      .one().getLong("cnt")).getOrElse(0L)
 
   val rowToBarData : (Row, Int, Int, LocalDate) => barsForFutAnalyze =
     (row: Row, tickerID: Int, barWidthSec: Int, dDate: LocalDate) =>

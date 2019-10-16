@@ -28,7 +28,21 @@ class BarFaCalcManager(config :Config, sess :CassSessionInstance.type) {
   }
 
   def stat() :Unit = {
+    log.info(" TCKR_ID  BWS  DistDates    BarsCnt   ReadDur ms.  FaDates  FaCnt")
+    sess.getAllBarsProperties()
+      .filter(tb => tb.tickerId==1)
+      .sortBy(tb => (tb.tickerId,tb.bws)).collect {
+      case thisTickerBarProp: BarProperty =>
+        val (tickerID: Int, barWidthSec: Int) = thisTickerBarProp.unapply
+        val distDates: Seq[LocalDate] = sess.getAllDates(tickerID, barWidthSec)
 
+        val t1 = System.currentTimeMillis
+        val barTotalCntByPk: Long = distDates.map(d => sess.getBarCntPerPrimKey(tickerID, barWidthSec, d)).sum
+        val distFaDates :Seq[LocalDate] = sess.getAllFaDates(tickerID, barWidthSec)
+        val faTotalCntByPK :Long = distFaDates.map(d => sess.getFaCntPerPrimKey(tickerID, barWidthSec, d)).sum
+        val t2 = System.currentTimeMillis
+        log.info(s" $tickerID        $barWidthSec    ${distDates.size}         $barTotalCntByPk     ${(t2 - t1)/1000}            ${distFaDates.size}    $faTotalCntByPK")
+    }
   }
 
   def run() :Unit = {

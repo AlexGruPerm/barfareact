@@ -23,8 +23,8 @@ case class barsForFutAnalyze(
                               l           :Double,
                               c           :Double
                             ){
-  val minOHLC = Seq(o,h,l,c).min
-  val maxOHLC = Seq(o,h,l,c).max
+  val minOHLC :Double = Seq(o,h,l,c).min
+  val maxOHLC :Double= Seq(o,h,l,c).max
 }
 
 case class barsFutAnalyzeRes(
@@ -47,7 +47,5 @@ case class barsResToSaveDB(
                             c_res        :Double,
                             res_type     :String
                           )
-
-
 
 
