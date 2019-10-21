@@ -49,7 +49,7 @@ object MainBarFaCalc extends App {
 
   val bcm :BarFaCalcManager = new BarFaCalcManager(config,sessInstance)
   bcm.stat
-  //bcm.run
+  bcm.run
 
   log.info("========================================== END ============================================")
 }
